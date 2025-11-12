@@ -20,7 +20,6 @@ uv sync
 # 폰트 다운로드
 wget https://github.com/notofonts/noto-cjk/raw/main/Sans/OTC/NotoSansCJK-Regular.ttc -O assets/fonts/NotoSansCJK-Regular.ttc
 
-
 # 라이브러리 설치
 ## SDXL
 uv add torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
