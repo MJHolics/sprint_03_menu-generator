@@ -8,4 +8,3 @@ uv add langchain langchain-openai
 uv add dotenv sqlalchemy pymysql
 
 ```
->>>>>>> origin/main
