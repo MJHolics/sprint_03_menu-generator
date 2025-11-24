@@ -13,7 +13,7 @@ import {
   Alert,
   Chip,
 } from '@mui/material'
-import { MenuBook, Spa, LocationOn, Info } from '@mui/icons-material'
+import { MenuBook, Spa, LocationOn, Info, LocalFlorist, History } from '@mui/icons-material'
 import { seasonalStoryApi } from '@/services/api'
 
 export default function MenuStorytellingPage() {
@@ -186,7 +186,7 @@ export default function MenuStorytellingPage() {
                   <Card variant="outlined">
                     <CardContent>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <Eco fontSize="small" />
+                        <LocalFlorist fontSize="small" />
                         <Typography variant="subtitle2" fontWeight="bold">
                           재료
                         </Typography>
@@ -229,7 +229,7 @@ export default function MenuStorytellingPage() {
                     <Card variant="outlined">
                       <CardContent>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                          <HistoryEdu fontSize="small" />
+                          <History fontSize="small" />
                           <Typography variant="subtitle2" fontWeight="bold">
                             역사/배경
                           </Typography>

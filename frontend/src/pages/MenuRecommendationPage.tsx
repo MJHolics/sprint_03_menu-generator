@@ -101,7 +101,31 @@ export default function MenuRecommendationPage() {
         menus: sampleMenus
       })
 
-      setResult(response.data)
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      const transformed = {
+        recommendations: response.data.data.filtered_menus.map((item: any) => ({
+          menu: {
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            description: item.description,
+            calories: item.calories,
+            protein_g: item.protein_g,
+            fat_g: item.fat_g,
+            carbs_g: item.carbs_g,
+            sugar_g: item.sugar_g,
+            caffeine_mg: item.caffeine_mg
+          },
+          reason: item.reason
+        })),
+        total_found: response.data.data.total_count,
+        parsed_intent: {
+          explanation: response.data.data.explanation
+        }
+      }
+
+      setResult(transformed)
     } catch (err: any) {
       setError(err.message || '메뉴 추천 중 오류가 발생했습니다.')
     } finally {

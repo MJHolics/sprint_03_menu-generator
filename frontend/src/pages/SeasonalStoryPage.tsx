@@ -25,6 +25,25 @@ export default function SeasonalStoryPage() {
   const [storeType, setStoreType] = useState('카페')
   const [location, setLocation] = useState('Seoul')
   const [result, setResult] = useState<any>(null)
+  const [selectedGoogleTrends, setSelectedGoogleTrends] = useState<string[]>([])
+  const [selectedInstagramTrends, setSelectedInstagramTrends] = useState<string[]>([])
+
+  // 트렌드 선택/해제 토글
+  const toggleGoogleTrend = (trend: string) => {
+    setSelectedGoogleTrends(prev =>
+      prev.includes(trend)
+        ? prev.filter(t => t !== trend)
+        : [...prev, trend]
+    )
+  }
+
+  const toggleInstagramTrend = (trend: string) => {
+    setSelectedInstagramTrends(prev =>
+      prev.includes(trend)
+        ? prev.filter(t => t !== trend)
+        : [...prev, trend]
+    )
+  }
 
   // 매장 타입에 따른 메뉴 카테고리 추출
   const getMenuCategoriesByStoreType = (storeType: string): string[] => {
@@ -57,12 +76,16 @@ export default function SeasonalStoryPage() {
       setLoading(true)
       setError(null)
 
+      // 선택된 Google과 Instagram 트렌드를 합침
+      const allSelectedTrends = [...selectedGoogleTrends, ...selectedInstagramTrends]
+
       const response = await seasonalStoryApi.generate({
         store_id: parseInt(storeId),
         store_name: storeName,
         store_type: storeType,
         location: location,
-        menu_categories: getMenuCategoriesByStoreType(storeType)
+        menu_categories: getMenuCategoriesByStoreType(storeType),
+        selected_trends: allSelectedTrends.length > 0 ? allSelectedTrends : undefined
       })
 
       setResult(response.data)
@@ -244,26 +267,53 @@ export default function SeasonalStoryPage() {
               <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <TrendingUp fontSize="small" sx={{ color: '#4285F4' }} />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        Google 트렌드
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TrendingUp fontSize="small" sx={{ color: '#4285F4' }} />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Google 트렌드
+                        </Typography>
+                      </Box>
+                      {selectedGoogleTrends.length > 0 && (
+                        <Typography variant="caption" color="primary">
+                          {selectedGoogleTrends.length}개 선택됨
+                        </Typography>
+                      )}
                     </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      클릭하여 강조할 트렌드를 선택하세요
+                    </Typography>
+                    <Box sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 1,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      pr: 1
+                    }}>
                       {result.context.google_trends && result.context.google_trends.length > 0 ? (
-                        result.context.google_trends.map((trend: string, index: number) => (
-                          <Chip
-                            key={index}
-                            label={`#${trend}`}
-                            size="small"
-                            sx={{
-                              backgroundColor: '#E8F0FE',
-                              color: '#1967D2',
-                              fontWeight: 500
-                            }}
-                          />
-                        ))
+                        result.context.google_trends.map((trend: string, index: number) => {
+                          const isSelected = selectedGoogleTrends.includes(trend)
+                          return (
+                            <Chip
+                              key={index}
+                              label={`#${trend}`}
+                              size="small"
+                              onClick={() => toggleGoogleTrend(trend)}
+                              sx={{
+                                backgroundColor: isSelected ? '#1967D2' : '#E8F0FE',
+                                color: isSelected ? '#FFF' : '#1967D2',
+                                fontWeight: isSelected ? 600 : 500,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: isSelected ? '#1557B0' : '#D2E3FC',
+                                  transform: 'scale(1.05)',
+                                  transition: 'all 0.2s'
+                                }
+                              }}
+                            />
+                          )
+                        })
                       ) : (
                         <Typography variant="body2" color="text.secondary">
                           데이터 없음
@@ -278,26 +328,53 @@ export default function SeasonalStoryPage() {
               <Grid item xs={12} md={6}>
                 <Card>
                   <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                      <TrendingUp fontSize="small" sx={{ color: '#E4405F' }} />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        Instagram 트렌드
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TrendingUp fontSize="small" sx={{ color: '#E4405F' }} />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Instagram 트렌드
+                        </Typography>
+                      </Box>
+                      {selectedInstagramTrends.length > 0 && (
+                        <Typography variant="caption" sx={{ color: '#C2185B' }}>
+                          {selectedInstagramTrends.length}개 선택됨
+                        </Typography>
+                      )}
                     </Box>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      클릭하여 강조할 트렌드를 선택하세요
+                    </Typography>
+                    <Box sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 1,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      pr: 1
+                    }}>
                       {result.context.instagram_trends && result.context.instagram_trends.length > 0 ? (
-                        result.context.instagram_trends.map((trend: string, index: number) => (
-                          <Chip
-                            key={index}
-                            label={`#${trend}`}
-                            size="small"
-                            sx={{
-                              backgroundColor: '#FCE4EC',
-                              color: '#C2185B',
-                              fontWeight: 500
-                            }}
-                          />
-                        ))
+                        result.context.instagram_trends.map((trend: string, index: number) => {
+                          const isSelected = selectedInstagramTrends.includes(trend)
+                          return (
+                            <Chip
+                              key={index}
+                              label={`#${trend}`}
+                              size="small"
+                              onClick={() => toggleInstagramTrend(trend)}
+                              sx={{
+                                backgroundColor: isSelected ? '#C2185B' : '#FCE4EC',
+                                color: isSelected ? '#FFF' : '#C2185B',
+                                fontWeight: isSelected ? 600 : 500,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  backgroundColor: isSelected ? '#A91649' : '#F8BBD0',
+                                  transform: 'scale(1.05)',
+                                  transition: 'all 0.2s'
+                                }
+                              }}
+                            />
+                          )
+                        })
                       ) : (
                         <Typography variant="body2" color="text.secondary">
                           데이터 없음
@@ -313,6 +390,27 @@ export default function SeasonalStoryPage() {
             <Typography variant="body2" color="text.secondary" align="center">
               생성 시간: {result.generation_time?.toFixed(2)}초
             </Typography>
+
+            {/* 선택한 트렌드로 재생성 버튼 */}
+            {(selectedGoogleTrends.length > 0 || selectedInstagramTrends.length > 0) && (
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={handleGenerate}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <AutoAwesome />}
+                  sx={{
+                    borderWidth: 2,
+                    '&:hover': {
+                      borderWidth: 2
+                    }
+                  }}
+                >
+                  선택한 트렌드로 재생성하기 ({selectedGoogleTrends.length + selectedInstagramTrends.length}개)
+                </Button>
+              </Box>
+            )}
           </Box>
         )}
       </Box>

@@ -21,6 +21,10 @@ class SeasonalStoryRequest(BaseModel):
         None,
         description="메뉴 카테고리 (예: ['커피', '디저트'])"
     )
+    selected_trends: Optional[List[str]] = Field(
+        None,
+        description="사용자가 선택한 트렌드 키워드 (우선적으로 반영됨)"
+    )
 
     class Config:
         json_schema_extra = {
@@ -110,6 +114,38 @@ class MenuStorytellingResponse(BaseModel):
                     "menu_name": "아메리카노",
                     "generated_at": "2025-11-18T14:30:00+09:00"
                 }
+            }
+        }
+
+
+class WelcomeMessageRequest(BaseModel):
+    """환영 문구 생성 요청"""
+
+    store_id: int = Field(..., description="매장 ID")
+    location: Optional[str] = Field("Seoul", description="위치 (도시 이름)")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "store_id": 1,
+                "location": "Seoul"
+            }
+        }
+
+
+class MenuHighlightRequest(BaseModel):
+    """메뉴 하이라이트 요청"""
+
+    store_id: int = Field(..., description="매장 ID")
+    location: Optional[str] = Field("Seoul", description="위치")
+    max_highlights: Optional[int] = Field(3, description="최대 하이라이트 개수")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "store_id": 1,
+                "location": "Seoul",
+                "max_highlights": 3
             }
         }
 

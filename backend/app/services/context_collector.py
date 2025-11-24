@@ -233,12 +233,12 @@ class ContextCollectorService:
         weekdays = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
         return weekdays[weekday]
 
-    def get_all_trends(self, limit: int = 5, store_type: str = "카페") -> Dict[str, List[str]]:
+    def get_all_trends(self, limit: int = 20, store_type: str = "카페") -> Dict[str, List[str]]:
         """
         모든 트렌드 소스를 분리하여 수집
 
         Args:
-            limit: 각 소스별로 가져올 트렌드 개수
+            limit: 각 소스별로 가져올 트렌드 개수 (기본값: 20)
 
         Returns:
             소스별 트렌드 딕셔너리
@@ -352,7 +352,7 @@ class ContextCollectorService:
         self._trends_cache_time = current_time
         return mock_trends
 
-    def _get_instagram_trends(self, limit: int = 5, store_type: str = "카페") -> List[str]:
+    def _get_instagram_trends(self, limit: int = 20, store_type: str = "카페") -> List[str]:
         """
         Instagram Graph API를 통한 트렌드 수집 (매장 타입별)
 
@@ -360,7 +360,7 @@ class ContextCollectorService:
         매장 타입과 계절에 맞는 해시태그의 활동성을 측정하여 반환
 
         Args:
-            limit: 가져올 트렌드 개수
+            limit: 가져올 트렌드 개수 (기본값: 20)
             store_type: 매장 타입
 
         Returns:
@@ -370,6 +370,12 @@ class ContextCollectorService:
             logger.warning("Instagram access token not configured")
             return []
 
+        if not self.instagram_business_account_id:
+            logger.warning("Instagram business account ID not configured")
+            return []
+
+        logger.info(f"Fetching Instagram trends with account ID: {self.instagram_business_account_id}")
+
         try:
             # 매장 타입별 + 계절별 해시태그 생성
             season = self.get_season()
@@ -378,11 +384,13 @@ class ContextCollectorService:
             # 일반적인 음식/카페 해시태그 추가
             general_hashtags = [
                 "맛집", "맛스타그램", "먹스타그램", "오늘의메뉴",
-                "데일리", "일상", "foodstagram", "instafood"
+                "데일리", "일상", "foodstagram", "instafood",
+                "cafestagram", "foodie", "yummy", "delicious",
+                "koreanfood", "kfood", "서울맛집", "강남맛집"
             ]
 
-            # 매장 타입 키워드 + 일반 해시태그 조합
-            candidate_hashtags = store_keywords[:10] + general_hashtags[:5]
+            # 매장 타입 키워드 + 일반 해시태그 조합 (더 많은 후보 확보)
+            candidate_hashtags = store_keywords[:15] + general_hashtags[:10]
 
             hashtag_scores = []
 
@@ -400,11 +408,13 @@ class ContextCollectorService:
                     search_response = requests.get(search_url, params=search_params, timeout=5)
 
                     if search_response.status_code != 200:
+                        logger.warning(f"Instagram hashtag search failed for '{hashtag}': Status {search_response.status_code}, Response: {search_response.text[:200]}")
                         continue
 
                     search_data = search_response.json()
 
                     if not search_data.get("data"):
+                        logger.debug(f"No data found for hashtag '{hashtag}': {search_data}")
                         continue
 
                     hashtag_id = search_data["data"][0]["id"]
@@ -428,7 +438,7 @@ class ContextCollectorService:
                         })
 
                 except Exception as e:
-                    logger.debug(f"Failed to check hashtag '{hashtag}': {e}")
+                    logger.warning(f"Failed to check hashtag '{hashtag}': {e}")
                     continue
 
             # 점수 순으로 정렬하여 상위 트렌드 반환
@@ -643,14 +653,14 @@ class ContextCollectorService:
         logger.info(f"Generated keywords for {store_type} (normalized: {normalized_store_type}, season: {season}): {unique_keywords}")
         return unique_keywords
 
-    def _get_google_trends(self, limit: int = 5, store_type: str = "카페") -> List[str]:
+    def _get_google_trends(self, limit: int = 20, store_type: str = "카페") -> List[str]:
         """
         Google Trends를 통한 실시간 트렌드 수집 (매장 타입별)
 
         Interest Over Time API를 사용하여 매장 타입 + 계절별 키워드의 인기도를 측정합니다.
 
         Args:
-            limit: 가져올 트렌드 개수
+            limit: 가져올 트렌드 개수 (기본값: 20)
             store_type: 매장 타입
 
         Returns:
