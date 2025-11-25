@@ -389,8 +389,8 @@ class ContextCollectorService:
                 "koreanfood", "kfood", "서울맛집", "강남맛집"
             ]
 
-            # 매장 타입 키워드 + 일반 해시태그 조합 (더 많은 후보 확보)
-            candidate_hashtags = store_keywords[:15] + general_hashtags[:10]
+            # 매장 타입 키워드 + 일반 해시태그 조합 (rate limit 방지를 위해 개수 제한)
+            candidate_hashtags = store_keywords[:5] + general_hashtags[:3]
 
             hashtag_scores = []
 
@@ -436,6 +436,9 @@ class ContextCollectorService:
                             "tag": hashtag,
                             "score": 1  # 실제로는 미디어 개수나 engagement를 측정할 수 있음
                         })
+
+                    # Rate limit 방지를 위한 지연
+                    time_module.sleep(0.5)
 
                 except Exception as e:
                     logger.warning(f"Failed to check hashtag '{hashtag}': {e}")
