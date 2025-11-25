@@ -26,10 +26,10 @@ class ContextCollectorService:
         # 한국 시간대
         self.korea_tz = pytz.timezone('Asia/Seoul')
 
-        # 트렌드 캐시 (30분 유지)
+        # 트렌드 캐시 (10분 유지)
         self._trends_cache = None
         self._trends_cache_time = None
-        self._trends_cache_ttl = 1800  # 30분 (초 단위)
+        self._trends_cache_ttl = 600  # 10분 (초 단위)
 
     def get_full_context(
         self,
@@ -680,10 +680,15 @@ class ContextCollectorService:
                 season = self.get_season()
                 keywords = self._get_store_season_keywords(store_type, season)
 
-                # 최대 5개씩 나눠서 검색 (API 제한)
+                # 최대 5개씩 나눠서 검색, 최대 3개 배치(15개 키워드)까지만 (API 제한)
                 all_scores = {}
+                max_batches = 3
+                batch_count = 0
 
                 for i in range(0, len(keywords), 5):
+                    if batch_count >= max_batches:
+                        break
+
                     batch = keywords[i:i+5]
 
                     try:
@@ -706,12 +711,15 @@ class ContextCollectorService:
                                     avg_score = interest_df[keyword].mean()
                                     all_scores[keyword] = avg_score
 
-                        # API 호출 간 딜레이
-                        if i + 5 < len(keywords):
-                            time_module.sleep(1)
+                        batch_count += 1
+
+                        # API 호출 간 딜레이 (더 길게)
+                        if batch_count < max_batches and i + 5 < len(keywords):
+                            time_module.sleep(2)
 
                     except Exception as batch_error:
                         logger.warning(f"Failed to fetch batch {batch}: {batch_error}")
+                        batch_count += 1
                         continue
 
                 # 인기순으로 정렬
