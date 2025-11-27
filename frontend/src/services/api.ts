@@ -346,6 +346,34 @@ export const menuGenerationApi = {
     const { data } = await api.get('/api/v1/menu-generation/health')
     return data
   },
+
+  /**
+   * 메뉴 아이템 업데이트
+   */
+  async updateMenuItem(itemId: number, updates: {
+    name?: string
+    description?: string
+    price?: number
+    image_url?: string
+  }): Promise<{ success: boolean; data: any }> {
+    const { data } = await api.put(`/api/v1/menu/item/${itemId}`, updates)
+    return data
+  },
+
+  /**
+   * 메뉴 이미지 직접 업로드
+   */
+  async uploadMenuImage(itemId: number, file: File): Promise<{ success: boolean; data: any }> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const { data } = await api.post(`/api/v1/menu/item/${itemId}/upload-image`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return data
+  },
 }
 
 export default api

@@ -33,8 +33,11 @@ import {
   Close,
   Search,
   TrendingUp,
+  Edit,
+  Save,
+  CloudUpload,
 } from '@mui/icons-material'
-import { seasonalStoryApi, menuApi } from '@services/api'
+import { seasonalStoryApi, menuApi, menuGenerationApi } from '@services/api'
 import type {
   MenuItem,
   SeasonalStoryResponse,
@@ -132,6 +135,14 @@ export default function MenuBoardPage() {
   const [filterExplanation, setFilterExplanation] = useState<string>('')
   const [storeId, setStoreId] = useState<string>('0')
 
+  // 편집 모드 상태
+  const [editMode, setEditMode] = useState(false)
+  const [editedName, setEditedName] = useState('')
+  const [editedDescription, setEditedDescription] = useState('')
+  const [editedPrice, setEditedPrice] = useState<number>(0)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [savingChanges, setSavingChanges] = useState(false)
+
   // 시즈널 스토리 로드
   useEffect(() => {
     loadSeasonalStory()
@@ -215,6 +226,12 @@ export default function MenuBoardPage() {
     setStorytellingLoading(true)
     setMenuStorytelling(null)
 
+    // 편집 모드 초기화
+    setEditMode(false)
+    setEditedName(menu.name)
+    setEditedDescription(menu.description || '')
+    setEditedPrice(menu.price)
+
     try {
       const response = await seasonalStoryApi.generateMenuStorytelling({
         menu_id: menu.id,
@@ -236,6 +253,98 @@ export default function MenuBoardPage() {
     setDialogOpen(false)
     setSelectedMenu(null)
     setMenuStorytelling(null)
+    setEditMode(false)
+  }
+
+  const handleEditToggle = () => {
+    if (editMode) {
+      // 편집 취소 - 원래 값으로 되돌리기
+      if (selectedMenu) {
+        setEditedName(selectedMenu.name)
+        setEditedDescription(selectedMenu.description || '')
+        setEditedPrice(selectedMenu.price)
+      }
+    }
+    setEditMode(!editMode)
+  }
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0] || !selectedMenu) return
+
+    const file = event.target.files[0]
+    setUploadingImage(true)
+
+    try {
+      const response = await menuGenerationApi.uploadMenuImage(selectedMenu.id, file)
+
+      if (response.success && response.data.image_url) {
+        // 메뉴 목록 업데이트
+        setDisplayedMenus((prevMenus) =>
+          prevMenus.map((m) =>
+            m.id === selectedMenu.id
+              ? { ...m, image_url: `${import.meta.env.VITE_API_URL}${response.data.image_url}` }
+              : m
+          )
+        )
+
+        // 선택된 메뉴 업데이트
+        setSelectedMenu({
+          ...selectedMenu,
+          image_url: `${import.meta.env.VITE_API_URL}${response.data.image_url}`,
+        })
+
+        alert('이미지가 성공적으로 업로드되었습니다!')
+      }
+    } catch (err: any) {
+      console.error('Failed to upload image:', err)
+      alert('이미지 업로드에 실패했습니다.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleSaveChanges = async () => {
+    if (!selectedMenu) return
+
+    setSavingChanges(true)
+
+    try {
+      const updates: any = {}
+      if (editedName !== selectedMenu.name) updates.name = editedName
+      if (editedDescription !== selectedMenu.description) updates.description = editedDescription
+      if (editedPrice !== selectedMenu.price) updates.price = editedPrice
+
+      if (Object.keys(updates).length > 0) {
+        await menuGenerationApi.updateMenuItem(selectedMenu.id, updates)
+
+        // 메뉴 목록 업데이트
+        setDisplayedMenus((prevMenus) =>
+          prevMenus.map((m) =>
+            m.id === selectedMenu.id
+              ? { ...m, name: editedName, description: editedDescription, price: editedPrice }
+              : m
+          )
+        )
+
+        // 선택된 메뉴 업데이트
+        setSelectedMenu({
+          ...selectedMenu,
+          name: editedName,
+          description: editedDescription,
+          price: editedPrice,
+        })
+
+        alert('변경사항이 저장되었습니다!')
+        setEditMode(false)
+      } else {
+        alert('변경된 내용이 없습니다.')
+      }
+    } catch (err: any) {
+      console.error('Failed to save changes:', err)
+      alert('저장에 실패했습니다.')
+    } finally {
+      setSavingChanges(false)
+    }
   }
 
   const handleCustomerQuery = async () => {
@@ -456,26 +565,81 @@ export default function MenuBoardPage() {
             <Typography variant="h5" fontWeight="bold">
               {selectedMenu?.name}
             </Typography>
-            <IconButton onClick={handleDialogClose} size="small">
-              <Close />
-            </IconButton>
+            <Box display="flex" gap={1}>
+              <IconButton
+                onClick={handleEditToggle}
+                size="small"
+                color={editMode ? 'default' : 'primary'}
+                title={editMode ? '편집 취소' : '편집'}
+              >
+                {editMode ? <Close /> : <Edit />}
+              </IconButton>
+              <IconButton onClick={handleDialogClose} size="small">
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
 
         <DialogContent>
           {selectedMenu && (
             <Box>
-              <img
-                src={selectedMenu.image_url}
-                alt={selectedMenu.name}
-                style={{ width: '100%', borderRadius: 8, marginBottom: 16 }}
-              />
+              <Box position="relative">
+                <img
+                  src={selectedMenu.image_url}
+                  alt={selectedMenu.name}
+                  style={{ width: '100%', borderRadius: 8, marginBottom: 8 }}
+                />
+                {editMode && (
+                  <Box display="flex" gap={1} mb={2}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      component="label"
+                      startIcon={<CloudUpload />}
+                      disabled={uploadingImage}
+                    >
+                      {uploadingImage ? '업로드 중...' : '이미지 업로드'}
+                      <input
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                    </Button>
+                  </Box>
+                )}
+              </Box>
 
               <Chip label={selectedMenu.category} size="small" color="primary" sx={{ mb: 2 }} />
 
-              <Typography variant="body1" color="text.secondary" paragraph>
-                {selectedMenu.description}
-              </Typography>
+              {editMode ? (
+                <Box mb={2}>
+                  <TextField
+                    fullWidth
+                    label="메뉴 이름"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    variant="outlined"
+                    size="small"
+                    sx={{ mb: 2 }}
+                  />
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={3}
+                    label="메뉴 설명"
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    variant="outlined"
+                    size="small"
+                  />
+                </Box>
+              ) : (
+                <Typography variant="body1" color="text.secondary" paragraph>
+                  {selectedMenu.description}
+                </Typography>
+              )}
 
               <Divider sx={{ my: 2 }} />
 
@@ -499,9 +663,24 @@ export default function MenuBoardPage() {
               <Typography variant="h6" fontWeight="bold" gutterBottom>
                 가격
               </Typography>
-              <Typography variant="h5" color="primary" fontWeight="bold">
-                {selectedMenu.price.toLocaleString()}원
-              </Typography>
+              {editMode ? (
+                <TextField
+                  label="가격"
+                  type="number"
+                  value={editedPrice}
+                  onChange={(e) => setEditedPrice(Number(e.target.value))}
+                  variant="outlined"
+                  size="small"
+                  sx={{ mb: 2 }}
+                  InputProps={{
+                    endAdornment: <Typography>원</Typography>
+                  }}
+                />
+              ) : (
+                <Typography variant="h5" color="primary" fontWeight="bold">
+                  {selectedMenu.price.toLocaleString()}원
+                </Typography>
+              )}
 
               {selectedMenu.ingredients && selectedMenu.ingredients.length > 0 && (
                 <>
@@ -532,9 +711,20 @@ export default function MenuBoardPage() {
 
         <DialogActions>
           <Button onClick={handleDialogClose}>닫기</Button>
-          <Button variant="contained" onClick={() => alert('주문 기능은 다음 단계에서 구현됩니다!')}>
-            주문하기
-          </Button>
+          {editMode ? (
+            <Button
+              variant="contained"
+              startIcon={<Save />}
+              onClick={handleSaveChanges}
+              disabled={savingChanges}
+            >
+              {savingChanges ? '저장 중...' : '저장'}
+            </Button>
+          ) : (
+            <Button variant="contained" onClick={() => alert('주문 기능은 다음 단계에서 구현됩니다!')}>
+              주문하기
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Container>
