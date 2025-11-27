@@ -125,10 +125,12 @@ export default function MenuBoardPage() {
   const [customerQuery, setCustomerQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [storytellingLoading, setStorytellingLoading] = useState(false)
+  const [menuLoading, setMenuLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [displayedMenus, setDisplayedMenus] = useState<MenuItem[]>(MOCK_MENUS)
   const [filterExplanation, setFilterExplanation] = useState<string>('')
+  const [storeId, setStoreId] = useState<string>('0')
 
   // 시즈널 스토리 로드
   useEffect(() => {
@@ -153,6 +155,57 @@ export default function MenuBoardPage() {
       setError(err.message || '스토리를 불러올 수 없습니다')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // 매장 메뉴 로드
+  const loadStoreMenus = async () => {
+    const id = parseInt(storeId)
+
+    // 매장 ID 0: 디폴트 샘플 메뉴
+    if (id === 0) {
+      setDisplayedMenus(MOCK_MENUS)
+      setFilterExplanation('')
+      setError(null)
+      return
+    }
+
+    // 매장 ID 1 이상: DB에서 조회
+    setMenuLoading(true)
+    setError(null)
+
+    try {
+      const response = await menuApi.getStoreMenus(id)
+
+      if (response.data.categories.length === 0) {
+        setError(`매장 ID ${id}번의 메뉴가 없습니다.`)
+        setDisplayedMenus([])
+        setFilterExplanation('')
+      } else {
+        // DB 메뉴를 MenuItem 형식으로 변환
+        const menus: MenuItem[] = []
+        response.data.categories.forEach((category: any) => {
+          category.items.forEach((item: any) => {
+            menus.push({
+              id: item.id,
+              name: item.name,
+              category: category.name,
+              price: item.price || 0,
+              description: item.description || '',
+              image_url: item.image_url ? `${import.meta.env.VITE_API_URL}${item.image_url}` : undefined,
+              ingredients: [],
+            })
+          })
+        })
+        setDisplayedMenus(menus)
+        setFilterExplanation(`매장 ID ${id}번의 메뉴 ${menus.length}개`)
+      }
+    } catch (err: any) {
+      setError(err.message || '메뉴 조회 중 오류가 발생했습니다.')
+      setDisplayedMenus([])
+      setFilterExplanation('')
+    } finally {
+      setMenuLoading(false)
     }
   }
 
@@ -282,6 +335,33 @@ export default function MenuBoardPage() {
             )}
           </Box>
         ) : null}
+      </Paper>
+
+      {/* 매장 메뉴 로드 섹션 */}
+      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
+        <Typography variant="subtitle1" fontWeight="bold" mb={2}>
+          매장별 메뉴 조회
+        </Typography>
+        <Box display="flex" gap={2} alignItems="center">
+          <TextField
+            label="매장 ID"
+            placeholder="0: 샘플, 1~: DB 메뉴"
+            value={storeId}
+            onChange={(e) => setStoreId(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && loadStoreMenus()}
+            variant="outlined"
+            size="small"
+            sx={{ width: 200 }}
+            type="number"
+          />
+          <Button
+            variant="contained"
+            onClick={loadStoreMenus}
+            disabled={menuLoading}
+          >
+            {menuLoading ? <CircularProgress size={24} /> : '메뉴 불러오기'}
+          </Button>
+        </Box>
       </Paper>
 
       {/* 고객 요청 입력 섹션 */}
