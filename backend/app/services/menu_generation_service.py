@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 from openai import OpenAI
 import json
+from PIL import Image
+import io
 
 from app.core.config import settings
 from app.core.logging import app_logger as logger
@@ -22,6 +24,8 @@ from app.schemas.menu_generation import (
     GeneratedMenuCategory,
     GeneratedMenuItem
 )
+from app.services.sd_service import sd_service
+from app.schemas.image import TextToImageRequest, ImageStyle, AspectRatio
 
 
 class MenuGenerationService:
@@ -288,7 +292,7 @@ JSON 형식으로 응답하세요:
         image_style: Optional[str]
     ) -> Optional[str]:
         """
-        이미지 생성 (현재는 placeholder, 추후 Stable Diffusion 연동)
+        Stable Diffusion으로 메뉴 이미지 생성
 
         Args:
             menu_name: 메뉴 이름
@@ -296,30 +300,68 @@ JSON 형식으로 응답하세요:
             image_style: 이미지 스타일
 
         Returns:
-            이미지 URL (현재는 None)
+            이미지 URL
         """
-        logger.info(f"이미지 생성 요청: {menu_name}")
+        logger.info(f"메뉴 이미지 생성 시작: {menu_name}")
 
-        # TODO: Stable Diffusion 서비스 연동
-        # 현재는 이미지 생성을 스킵하고 None 반환
-        # 추후 sd_service.py를 활용하여 이미지 생성 구현
+        try:
+            # 음식 사진 프롬프트 생성
+            prompt = f"professional food photography of {menu_name}"
 
-        # 예시 코드 (추후 구현):
-        # from app.services.sd_service import sd_service
-        # prompt = f"{menu_name}, {description}, {image_style}"
-        # image_data = await sd_service.generate_image(prompt)
-        # image_path = self._save_image(image_data, menu_name)
-        # return f"/static/uploads/{image_path}"
+            if description:
+                # 설명에서 핵심 키워드 추출 (간단히 처리)
+                prompt += f", {description[:100]}"
 
-        logger.info("이미지 생성 스킵 (추후 구현 예정)")
-        return None
+            prompt += ", appetizing, well-plated, restaurant quality, high resolution"
 
-    def _save_image(self, image_data: bytes, menu_name: str) -> str:
+            # 이미지 스타일 설정 (기본값: realistic)
+            style = ImageStyle.REALISTIC
+            if image_style:
+                try:
+                    style = ImageStyle(image_style.lower())
+                except ValueError:
+                    logger.warning(f"Unknown style '{image_style}', using 'realistic'")
+
+            # Stable Diffusion 요청 생성
+            sd_request = TextToImageRequest(
+                prompt=prompt,
+                style=style,
+                aspect_ratio=AspectRatio.SQUARE,  # 1:1 정사각형 (메뉴판에 적합)
+                num_inference_steps=30,  # 빠른 생성을 위해 30 steps
+                guidance_scale=7.5,
+                num_images=1
+            )
+
+            logger.info(f"SD 이미지 생성 중 - Prompt: {prompt[:100]}...")
+
+            # Stable Diffusion으로 이미지 생성
+            images, generation_time, parameters = await sd_service.generate_text_to_image(sd_request)
+
+            if not images or len(images) == 0:
+                logger.error("이미지 생성 실패: 빈 결과")
+                return None
+
+            # 첫 번째 이미지 저장
+            image = images[0]
+            filename = self._save_image(image, menu_name)
+
+            # URL 생성
+            image_url = f"/static/uploads/{filename}"
+
+            logger.info(f"메뉴 이미지 생성 완료: {image_url} ({generation_time:.2f}초)")
+            return image_url
+
+        except Exception as e:
+            logger.error(f"메뉴 이미지 생성 실패: {e}")
+            # 이미지 생성 실패 시 None 반환 (메뉴 생성은 계속 진행)
+            return None
+
+    def _save_image(self, image: Image.Image, menu_name: str) -> str:
         """
         이미지 파일 저장
 
         Args:
-            image_data: 이미지 바이너리 데이터
+            image: PIL Image 객체
             menu_name: 메뉴 이름
 
         Returns:
@@ -334,9 +376,8 @@ JSON 형식으로 응답하세요:
         upload_dir.mkdir(parents=True, exist_ok=True)
         file_path = upload_dir / filename
 
-        # 파일 저장
-        with open(file_path, 'wb') as f:
-            f.write(image_data)
+        # PIL Image를 JPEG로 저장
+        image.save(file_path, format='JPEG', quality=95, optimize=True)
 
         logger.info(f"이미지 저장 완료: {filename}")
         return filename

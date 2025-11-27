@@ -31,14 +31,129 @@ import type {
   MenuGenerationResponse,
 } from '@types/index'
 
+// 메뉴 아이템 이미지 컴포넌트 (이미지 로딩 상태 관리)
+function MenuItemImage({ imageUrl, menuName }: { imageUrl?: string | null; menuName: string }) {
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
+
+  if (!imageUrl) {
+    return (
+      <Box
+        sx={{
+          width: 200,
+          height: 200,
+          backgroundColor: 'grey.200',
+          borderRadius: 2,
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Restaurant sx={{ fontSize: 64, color: 'grey.400' }} />
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ position: 'relative', width: 200, height: 200, flexShrink: 0 }}>
+      {/* 이미지 로딩 중 표시 */}
+      {!imageLoaded && !imageError && (
+        <Box
+          sx={{
+            position: 'absolute',
+            width: 200,
+            height: 200,
+            backgroundColor: 'grey.200',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: 1,
+          }}
+        >
+          <CircularProgress size={40} />
+          <Typography variant="caption" color="text.secondary">
+            이미지 로딩 중...
+          </Typography>
+        </Box>
+      )}
+
+      {/* 실제 이미지 */}
+      <Box
+        component="img"
+        src={`${import.meta.env.VITE_API_URL}${imageUrl}`}
+        alt={menuName}
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageError(true)}
+        sx={{
+          width: 200,
+          height: 200,
+          objectFit: 'cover',
+          borderRadius: 2,
+          boxShadow: 2,
+          display: imageLoaded ? 'block' : 'none',
+        }}
+      />
+
+      {/* 이미지 로드 실패 */}
+      {imageError && (
+        <Box
+          sx={{
+            position: 'absolute',
+            width: 200,
+            height: 200,
+            backgroundColor: 'grey.200',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Restaurant sx={{ fontSize: 64, color: 'grey.400' }} />
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 function MenuGenerationPage() {
   // State
   const [storeId, setStoreId] = useState<string>('1')
   const [categories, setCategories] = useState<MenuCategoryCreate[]>([
     {
-      category_name: '',
+      category_name: '꽃소다',
       category_description: '',
-      items: [{ name: '', price: undefined, ingredients: [] }],
+      items: [
+        { name: '로즈민트소다', price: 15000, ingredients: [] },
+        { name: '트리플로즈소다', price: 15000, ingredients: [] },
+        { name: '로얄민트소다', price: 15000, ingredients: [] },
+      ],
+    },
+    {
+      category_name: '스무디',
+      category_description: '',
+      items: [
+        { name: '녹차 스무디아', price: 15000, ingredients: [] },
+        { name: '미니 스무디아', price: 15000, ingredients: [] },
+      ],
+    },
+    {
+      category_name: '음료',
+      category_description: '',
+      items: [
+        { name: '사이다', price: 2000, ingredients: [] },
+        { name: '콜라', price: 2000, ingredients: [] },
+        { name: '제로콜라', price: 2000, ingredients: [] },
+      ],
+    },
+    {
+      category_name: '사이드',
+      category_description: '',
+      items: [
+        { name: '감자튀김', price: 6000, ingredients: [] },
+      ],
     },
   ])
   const [autoGenerateImages, setAutoGenerateImages] = useState(true)
@@ -203,7 +318,7 @@ function MenuGenerationPage() {
                     onChange={(e) => setAutoGenerateImages(e.target.checked)}
                   />
                 }
-                label="AI 이미지 자동 생성 (예정)"
+                label="AI 이미지 자동 생성"
               />
             </Grid>
           </Grid>
@@ -353,8 +468,31 @@ function MenuGenerationPage() {
         startIcon={isLoading ? <CircularProgress size={20} /> : <AutoAwesome />}
         sx={{ mb: 3 }}
       >
-        {isLoading ? '메뉴판 생성 중...' : '메뉴판 생성하기'}
+        {isLoading ? 'AI가 메뉴 설명과 이미지를 생성하고 있습니다... 잠시만 기다려주세요 (30초~1분)' : '메뉴판 생성하기'}
       </Button>
+
+      {/* 로딩 중 안내 */}
+      {isLoading && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="body2" fontWeight="bold">
+              메뉴판 생성 중입니다...
+            </Typography>
+            <Typography variant="body2">
+              • AI가 각 메뉴의 설명을 작성하고 있습니다
+            </Typography>
+            <Typography variant="body2">
+              • AI가 각 메뉴의 이미지를 생성하고 있습니다 (시간이 조금 걸릴 수 있습니다)
+            </Typography>
+            <Typography variant="body2">
+              • 데이터베이스에 저장하고 있습니다
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+              완료되면 자동으로 결과가 표시됩니다. 페이지를 새로고침하지 마세요!
+            </Typography>
+          </Box>
+        </Alert>
+      )}
 
       {/* 에러 메시지 */}
       {error && (
@@ -390,24 +528,42 @@ function MenuGenerationPage() {
 
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                   {category.items.map((item, itemIndex) => (
-                    <Grid item xs={12} sm={6} md={4} key={itemIndex}>
-                      <Paper sx={{ p: 2 }}>
-                        <Typography variant="subtitle1" fontWeight="bold">
-                          {item.name}
-                        </Typography>
-                        {item.price && (
-                          <Typography variant="body2" color="primary">
-                            {item.price.toLocaleString()}원
-                          </Typography>
-                        )}
-                        {item.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            {item.description}
-                            {item.is_ai_generated_description && (
-                              <Chip label="AI 생성" size="small" sx={{ ml: 1 }} />
+                    <Grid item xs={12} key={itemIndex}>
+                      <Paper sx={{ p: 3, display: 'flex', gap: 3, alignItems: 'center' }}>
+                        {/* 이미지 (왼쪽 끝에 크게) */}
+                        <MenuItemImage imageUrl={item.image_url} menuName={item.name} />
+
+                        {/* 메뉴 정보 (오른쪽) */}
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          {/* 메뉴명 */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                            <Typography variant="h5" fontWeight="bold">
+                              {item.name}
+                            </Typography>
+                            {item.is_ai_generated_image && (
+                              <Chip label="AI 이미지" size="small" color="primary" />
                             )}
-                          </Typography>
-                        )}
+                          </Box>
+
+                          {/* 가격 */}
+                          {item.price && (
+                            <Typography variant="h6" color="primary" fontWeight="bold" sx={{ mb: 2 }}>
+                              {item.price.toLocaleString()}원
+                            </Typography>
+                          )}
+
+                          {/* 메뉴 설명 */}
+                          {item.description && (
+                            <Box>
+                              <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+                                {item.description}
+                              </Typography>
+                              {item.is_ai_generated_description && (
+                                <Chip label="AI 설명" size="small" sx={{ mt: 1.5 }} color="secondary" />
+                              )}
+                            </Box>
+                          )}
+                        </Box>
                       </Paper>
                     </Grid>
                   ))}
